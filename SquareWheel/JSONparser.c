@@ -1,45 +1,58 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-// Функция для подсчета уровня вложенности
-int countIndentLevel(char *line) {
-    int level = 0;
-    while (*line == ' ' || *line == '\t') {
-        level++;
-        line++;
-    }
-    return level;
-}
+void print_json(const char *json, int level);
 
 int main() {
-    FILE *file = fopen("input.json", "r"); // Открываем файл для чтения
+    FILE *file;
+    char filename[] = "input.json"; 
+
+    file = fopen(filename, "r");
+
     if (file == NULL) {
-        perror("Ошибка при открытии файла");
+        printf("Не удалось открыть файл.\n");
         return 1;
     }
 
-    int integerCount = 0;
-    int stringCount = 0;
-    int currentLevel = 0;
-    char line[4096]; // Буфер для хранения строки
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
 
-    while (fgets(line, sizeof(line), file) != NULL) {
-        int level = countIndentLevel(line);
-
-        if (level == currentLevel) {
-            // Соответствует текущему уровню, обработаем строку
-            if (sscanf(line, "\"%*[^\":]\": %d", &integerCount) == 1) {
-                printf("Integer: %d (Level: %d)\n", integerCount, currentLevel);
-            } else if (strstr(line, "\"string\"") != NULL) {
-                stringCount++;
-            }
-        } else if (level > currentLevel) {
-            // Уровень увеличился
-            currentLevel = level;
-        }
+    char *json_buffer = (char *)malloc(file_size + 1);
+    if (json_buffer == NULL) {
+        printf("Ошибка выделения памяти для буфера.\n");
+        fclose(file);
+        return 1;
     }
 
-    printf("Количество строк: %d\n", stringCount);
+    fread(json_buffer, 1, file_size, file);
+    json_buffer[file_size] = '\0';
 
-    fclose(file); // Закрываем файл
+    fclose(file);
+
+    print_json(json_buffer, 0);
+
+    free(json_buffer);
+
     return 0;
+}
+
+void print_json(const char *json, int level) {
+    int inside_string = 0;
+
+    while (*json) {
+        if (*json == '{' || *json == '[') {
+            level++;
+            printf("Level %d\n", level);
+        } else if (*json == '}' || *json == ']') {
+            level--;
+        } else if (*json == '"') {
+            inside_string = !inside_string;
+        } else if (!inside_string && (*json >= '0' && *json <= '9')) {
+            printf("Integer: %c (Level %d)\n", *json, level);
+        }
+
+        json++;
+    }
 }
